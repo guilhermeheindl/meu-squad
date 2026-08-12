@@ -12,13 +12,37 @@ import {
 
 const STORAGE_KEY = "gx-novos-clientes-kanban-v2";
 
+// Corrige em memória cards com id duplicado (bug antigo: dois clientes com nome
+// igual geravam o mesmo id, e mover um card movia os dois juntos). Mantém o
+// primeiro como está e dá um id novo só pros duplicados seguintes.
+function dedupeIds(list: KanbanClient[]): KanbanClient[] {
+  const seen = new Set<string>();
+  let changed = false;
+  const result = list.map((c) => {
+    if (!seen.has(c.id)) {
+      seen.add(c.id);
+      return c;
+    }
+    changed = true;
+    let n = 2;
+    let candidate = `${c.id}-${n}`;
+    while (seen.has(candidate)) {
+      n += 1;
+      candidate = `${c.id}-${n}`;
+    }
+    seen.add(candidate);
+    return { ...c, id: candidate };
+  });
+  return changed ? result : list;
+}
+
 function loadClients(): KanbanClient[] {
   if (typeof window === "undefined") return novosClientesKanbanSeed;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return novosClientesKanbanSeed;
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    if (Array.isArray(parsed) && parsed.length > 0) return dedupeIds(parsed);
     return novosClientesKanbanSeed;
   } catch {
     return novosClientesKanbanSeed;
@@ -34,6 +58,14 @@ function slugify(nome: string) {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "") || `cliente-${Date.now()}`
   );
+}
+
+function uniqueId(base: string, existing: KanbanClient[]) {
+  const ids = new Set(existing.map((c) => c.id));
+  if (!ids.has(base)) return base;
+  let n = 2;
+  while (ids.has(`${base}-${n}`)) n += 1;
+  return `${base}-${n}`;
 }
 
 export default function NovosClientesKanban() {
@@ -84,7 +116,7 @@ export default function NovosClientesKanban() {
   function submitNewClient() {
     if (!addTipo || !form.nome.trim()) return;
     const novo: KanbanClient = {
-      id: slugify(form.nome),
+      id: uniqueId(slugify(form.nome), clients),
       nome: form.nome.trim(),
       owner: form.owner.trim() || "—",
       gt: form.gt.trim() || undefined,
