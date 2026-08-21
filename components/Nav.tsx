@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/alavancas", label: "Alavancas" },
   { href: "/diretrizes", label: "Diretrizes" },
   { href: "/novos-clientes", label: "Novos Clientes" },
+  { href: "/war-week", label: "War Week" },
 ];
 
 export default function Nav() {
